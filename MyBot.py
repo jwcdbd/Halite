@@ -7,7 +7,7 @@ import sys
 
 
 myID, game_map = hlt.get_init()
-hlt.send_init("OverkillBot6")
+hlt.send_init("OverkillBot7")
 
 rev = {}
 rev[NORTH] = SOUTH
@@ -46,8 +46,8 @@ def find_nearest_enemy_direction(square):
     return direction
 
 def heuristic(square):
-    if square.owner == 0 and square.strength > 0:
-        return square.production / square.strength
+    if square.owner == 0 :
+        return square.production / (square.strength+0.01)
     else:
         # return total potential damage caused by overkill when attacking this square
         return sum(neighbor.strength for neighbor in game_map.neighbors(square) if neighbor.owner not in (0, myID))
