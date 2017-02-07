@@ -34,15 +34,21 @@ max_d=(game_map.width+ game_map.height) / 2
 def find_nearest_enemy_direction(square):
     direction = NORTH
     max_distance = min(game_map.width, game_map.height) / 2
+    st = 1000
     for d in (NORTH, EAST, SOUTH, WEST):
         distance = 0
         current = square
-        while current.owner == myID and distance < max_distance:
+        while current.owner == myID and distance <= max_distance:
             distance += 1
             current = game_map.get_target(current, d)
         if distance < max_distance:
             direction = d
             max_distance = distance
+            st=target_strength(square,d)
+        elif distance == max_distance and target_strength(square,d)<st:
+            direction = d
+            max_distance = distance
+            st=target_strength(square,d)
     return direction
 
 def heuristic(square):
@@ -89,7 +95,7 @@ def target_strength(square, direction):
     target = game_map.get_target(square, direction)
     coor=(target.x,target.y)
     if coor not in dic_strength:
-        dic_strength[coor]=target.strength*(target.owner==myID)*(target not in dic or dic[target]==STILL)-target.strength*(target.owner!=myID)
+        dic_strength[coor]=target.strength*(target.owner==myID)*(target not in dic or dic[target]==STILL)
     return square.strength + dic_strength[coor]
 
 def update_strength(square,direction):
@@ -105,7 +111,7 @@ def update_strength(square,direction):
         target=game_map.get_target(square, direction)
         coor = (target.x, target.y)
         if coor in dic_strength:
-            dic_strength[coor] += square.strength
+            dic_strength[coor] +=square.strength
         else:
             dic_strength[coor] = square.strength+(target.owner==myID)*target.strength
 
@@ -160,34 +166,35 @@ def get_move(square):
                     dic[neighbors2[dir_dia[(dir+1) % 4]]] = (dir+3)%4
                     update_strength(neighbors2[dir_dia[(dir+1) % 4]],(dir+3)%4)
             return
-        elif any(ne.owner==0 for ne in neighbors) :
+        elif any(ne.owner==0 for ne in neighbors):
             target, direction = max(
                 ((neighbor, direction) for direction, neighbor in enumerate(game_map.neighbors(square)) if
                  neighbor.owner != myID), default=(None, STILL), key=lambda t: heuristic(t[0]))
             score = -1
-            eva=-1000
+            st=1000
             if target is not None:
-                score= heuristic(target)
-                if target.strength >= square.strength:
-                    direction=STILL
+                score = heuristic(target)
+                if target.strength >= square.strength or target_strength(square, direction) >= 280:
+                    direction = STILL
                 for i in (NORTH, EAST, SOUTH, WEST):
                     t1 = neighbors[dir1[i]]
-                    if t1.owner==myID:
-                        t2, _ = max(((neighbors[k], k) for k in dir2[i] if neighbors[k].owner != myID), default = (None, None), key = lambda t: heuristic(t[0]))
-                        if t2 is not None and (t1.strength+t1.production)<= t2.strength and target_strength(square,i)<=280:
-                            eva =heuristic(t2)
-                            if eva > score:
-                                score=eva
-                                t2s=t2
-                                t1s=t1
-                                direction=i if t2s.strength<t1s.strength+t1s.production+square.strength else STILL
+                    if t1.owner == myID:
+                        t2, _ = max(((neighbors[k], k) for k in dir2[i] if neighbors[k].owner != myID),
+                                    default=(None, None), key=lambda t: heuristic(t[0]))
+                        if t2 is not None and (t1.strength + t1.production) <= t2.strength :
+                            eva = heuristic(t2)
+                            if eva > score and target_strength(square,i) <= 280:
+                                score = eva
+                                t2s = t2
+                                t1s = t1
+                                direction = i if t2s.strength < t1s.strength + t1s.production + square.strength else STILL
             else:
                 for i in (NORTH, EAST, SOUTH, WEST):
-                    t1 = neighbors[dir1[i]]
+
                     #t2, _ = max(((neighbors[k], k) for k in dir2[i] if neighbors[k].owner != myID),default=(None, None), key=lambda t: heuristic(t[0]))
                     t2= sum((heuristic(neighbors[k])+0.01) for k in dir2[i] if neighbors[k].owner != myID)/(sum(1 for k in dir2[i] if neighbors[k].owner != myID)+0.01)
                     eva = t2
-                    if eva > score and (target_strength(square,i)<=280 or square.strength>=250):
+                    if eva >= score and target_strength(square,i)<280:
                         score=eva
                         direction=i if square.strength > 5*square.production else STILL
             dic[square]=direction
@@ -232,5 +239,6 @@ while True:
         else:
             moves.append(Move(key, dic[key]))
     tn+=1
+    dic_strength={}
     hlt.send_frame(moves)
 
